@@ -63,8 +63,8 @@ ui <- fluidPage(
             #selectInput("gene_list", "Select Gene:", choices = NULL),  # Add a select input for gene names
             plotlyOutput("correlation_plot",height = "800px", width = "100%"),
             dataTableOutput("gene_expression_table"),
-            dataTableOutput("snp_table"),  
-            uiOutput("gene_image") 
+            #dataTableOutput("snp_table"),  
+            imageOutput("gene_image") 
         )
     )
 )
@@ -125,6 +125,26 @@ server <- function(input, output, session) {
             }
         }
     })
+    output$gene_image <- renderImage({
+        # Get the selected gene from the dropdown
+        selected_gene <- input$gene_list
+        
+        # Path to the images folder
+        image_directory <- "/Users/vivek/Desktop/ICR_Final/RshinyApp/data/IGplots"
+        
+        # Build the path to the specific gene image
+        image_path <- file.path(image_directory, paste0(selected_gene, ".png"))
+        print(paste("Trying to load image:", image_path)) 
+        
+        # Check if the image exists
+        if (file.exists(image_path)) {
+            # Return a list specifying the image source, content type, and alternative text
+            list(src = image_path, contentType = 'image/png', alt = paste("Image of", selected_gene),width="100%")
+        } else {
+            # Optional: Return a placeholder image if the gene image does not exist
+            list(src = file.path(image_directory, "placeholder.png"), contentType = 'image/png', alt = "No image available")
+        }
+    }, deleteFile = FALSE)  # Keep deleteFile = FALSE to not delete the image after it's used
     
     output$gene_table <- renderDataTable({
         filtered_genes_data()
@@ -163,17 +183,16 @@ server <- function(input, output, session) {
         updateSelectInput(session, "gene_list", choices = gene_names)
     })
 
-    output$gene_expression_table <- renderDataTable({
-        selected_gene <- input$gene_list
-        if (!is.null(selected_gene) && selected_gene %in% rownames(xpr_data)) {
-            gene_expression <- t(data.frame(xpr_data[selected_gene, , drop = FALSE]))
-            colnames(gene_expression) <- c("xpr_lcpm")
-            gene_expression
-        } else {
-            data.frame()  # Return an empty data frame if no gene is selected or the gene is not in xpr_data
-        }
-    })
-    
+#    output$gene_expression_table <- renderDataTable({
+#        selected_gene <- input$gene_list
+#        if (!is.null(selected_gene) && selected_gene %in% rownames(xpr_data)) {
+#            gene_expression <- t(data.frame(xpr_data[selected_gene, , drop = FALSE]))
+#            colnames(gene_expression) <- c("xpr_lcpm")
+#            gene_expression
+#        } else {
+#            data.frame()  # Return an empty data frame if no gene is selected or the gene is not in xpr_data
+#        }
+#    })
     
 }
 
