@@ -17,6 +17,7 @@ library(corrplot)
 library(reshape2)
 library(heatmaply)
 library(stringr)
+library(leaflet)
 
 # load data
 icr_data <- read.csv("/Users/vivek/Desktop/ICR_Final/RshinyApp/data/cICR1495_MatPatOg.csv", stringsAsFactors = FALSE,header=F,sep=",")
@@ -24,18 +25,10 @@ colnames(icr_data) <- c("ICR_name","Chromosome:start_position-end_position","mat
 genes_data <- read.delim("/Users/vivek/Desktop/ICR_Final/RshinyApp/data/AllGenes.txt", stringsAsFactors = FALSE)
 xpr_data <- read.csv("/Users/vivek/Desktop/ICR_Final/RshinyApp/data/xpr_lcpm.tsv", sep = ",", header = TRUE, row.names = 1)
 exon_data <- read.delim("/Users/vivek/Desktop/ICR_Final/RshinyApp/data/AllGenesExons.tsv", header = FALSE, col.names = c("Region", "Exon_Start", "Exon_End"))
-#asm_data_1 <- read.csv("/Users/vivek/Desktop/ICR_Final/RshinyApp/data/21424B.asm", header = TRUE,sep="\t") %>% mutate(Source = "21424B.asm")
-#asm_data_2 <- read.csv("/Users/vivek/Desktop/ICR_Final/RshinyApp/data/21423L.asm", header = TRUE,sep="\t") %>% mutate(Source = "21423L.asm")
-#asm_data_3 <- read.csv("/Users/vivek/Desktop/ICR_Final/RshinyApp/data/21424L.asm", header = TRUE,sep="\t") %>% mutate(Source = "21424L.asm")
-#asm_data_4 <- read.csv("/Users/vivek/Desktop/ICR_Final/RshinyApp/data/21562L.asm", header = TRUE,sep="\t") %>% mutate(Source = "21562L.asm")
-#asm_data_5 <- read.csv("/Users/vivek/Desktop/ICR_Final/RshinyApp/data/22288B.asm", header = TRUE,sep="\t") %>% mutate(Source = "22288B.asm")
-#asm_data_6 <- read.csv("/Users/vivek/Desktop/ICR_Final/RshinyApp/data/22316B.asm", header = TRUE,sep="\t") %>% mutate(Source = "22316B.asm")
 
 # Pre-process data
 genes_data$hg38.knownGene.chrom <- sub("_.*", "", genes_data$hg38.knownGene.chrom)
 genes_data$hg38.knownGene.chrom <- sub("^chr", "Chr", genes_data$hg38.knownGene.chrom)
-#combined_asm_data <- bind_rows(asm_data_1, asm_data_2, asm_data_3, asm_data_4, asm_data_5, asm_data_6)
-#combined_asm_data$Chr <- sub("_.*", "",combined_asm_data$Chr)
 
 # Split the chromosome:start_position-end_position into separate columns for easier processing.
 icr_data <- icr_data %>%
@@ -53,18 +46,21 @@ ui <- fluidPage(
         sidebarPanel(
             selectInput("selected_icr", "Select ICR:", choices = icr_data$ICR_name),
             sliderInput("range", "Range around ICR:", min = 250, max = 1000, value = 1000, step = 250, post = "Kb"),
+            imageOutput("icr_image") ,
             textOutput("gene_count"),
             textOutput("mRNA_seq_gene_count"),
             selectInput("gene_list", "Select Gene:", choices = NULL),
-            width = 2
+            width = 3
         ),
         mainPanel(
             plotlyOutput("chromosome_plot",height = "800px", width = "100%"),
-            #selectInput("gene_list", "Select Gene:", choices = NULL),  # Add a select input for gene names
             plotlyOutput("correlation_plot",height = "800px", width = "100%"),
             dataTableOutput("gene_expression_table"),
-            #dataTableOutput("snp_table"),  
-            imageOutput("gene_image") 
+            h3(textOutput("image_title")), 
+            tabsetPanel(
+                tabPanel("Het View",imageOutput("gene_image")),
+                tabPanel("External Links",uiOutput("gene_link"))
+            )
         )
     )
 )
@@ -107,7 +103,7 @@ server <- function(input, output, session) {
         p <- ggplot(icr_data, aes(x = Start, y = Chromosome, text = ICR_name, customData=ICR_name)) +
             geom_point(aes(color = selected), size = 2) +
             scale_color_manual(values = c("FALSE" = "black", "TRUE" = "red")) +
-            labs(title = "Chromosome Plot", x = "Position", y = "Chromosome") +
+            labs(title = "Chromosome Plot for ICR selection", x = "Position", y = "Chromosome") +
             theme_minimal()
         ggplotly(p, tooltip = "text", source="chromosomePlot") %>% 
             layout(hovermode = "closest", hoverlabel = list(bgcolor = "white", font = list(size = 12), bordercolor = "black", align = "left"))
@@ -125,6 +121,40 @@ server <- function(input, output, session) {
             }
         }
     })
+    output$image_title <- renderText({
+        # Define the path to the image
+        selected_gene <- input$gene_list
+        image_directory <- "/Users/vivek/Desktop/ICR_Final/RshinyApp/data/IGplots"
+        image_path <- file.path(image_directory, paste0(selected_gene, ".png"))
+        
+        if (!is.null(selected_gene) && file.exists(image_path)) {
+            paste(selected_gene," heterozygous ratios in samples that have data")
+        } else {
+            "Not enough information in our data"
+        }
+    })
+    output$icr_image <- renderImage({
+        # Get the selected gene from the dropdown
+        selected_icr <- input$selected_icr
+        
+        # Path to the images folder
+        image_directory <- "/Users/vivek/Desktop/ICR_Final/RshinyApp/data/ICRplots/"
+        
+        # Build the path to the specific gene image
+        image_path <- file.path(image_directory, paste0(selected_icr, ".png"))
+        print(paste("Trying to load image:", image_path)) 
+        
+        # Check if the image exists
+        if (file.exists(image_path)) {
+            # Return a list specifying the image source, content type, and alternative text
+            list(src = image_path, contentType = 'image/png', alt = paste("Image of", selected_icr),width="100%",height="auto")
+        } else {
+            # Optional: Return a placeholder image if the gene image does not exist
+            list(src = file.path(image_directory, "placeholder.png"), contentType = 'image/png', alt = "Image not yet available")
+        }
+    }, deleteFile = FALSE)  # Keep deleteFile = FALSE to not delete the image after it's used
+    
+    
     output$gene_image <- renderImage({
         # Get the selected gene from the dropdown
         selected_gene <- input$gene_list
@@ -139,10 +169,10 @@ server <- function(input, output, session) {
         # Check if the image exists
         if (file.exists(image_path)) {
             # Return a list specifying the image source, content type, and alternative text
-            list(src = image_path, contentType = 'image/png', alt = paste("Image of", selected_gene),width="100%")
+            list(src = image_path, contentType = 'image/png', alt = paste("Image of", selected_gene),width="80%")
         } else {
             # Optional: Return a placeholder image if the gene image does not exist
-            list(src = file.path(image_directory, "placeholder.png"), contentType = 'image/png', alt = "No image available")
+            list(src = file.path(image_directory, "placeholder.png"), contentType = 'image/png', alt = "Select another gene to explore")
         }
     }, deleteFile = FALSE)  # Keep deleteFile = FALSE to not delete the image after it's used
     
@@ -169,6 +199,7 @@ server <- function(input, output, session) {
             heatmaply(
                 gene_data,
                 colors = colorRampPalette(c( "white", "#542788"))(256),
+                layout = list(title = "Cluster of genes showing log-normalized mRNA expression values", titlefont = list(size = 20)) ,
                 show_dendrogram = TRUE,
                 dendrogram_height = 0.2
             )
@@ -183,16 +214,26 @@ server <- function(input, output, session) {
         updateSelectInput(session, "gene_list", choices = gene_names)
     })
 
-#    output$gene_expression_table <- renderDataTable({
-#        selected_gene <- input$gene_list
-#        if (!is.null(selected_gene) && selected_gene %in% rownames(xpr_data)) {
-#            gene_expression <- t(data.frame(xpr_data[selected_gene, , drop = FALSE]))
-#            colnames(gene_expression) <- c("xpr_lcpm")
-#            gene_expression
-#        } else {
-#            data.frame()  # Return an empty data frame if no gene is selected or the gene is not in xpr_data
-#        }
-#    })
+    output$gene_link <- renderUI({
+        req(input$gene_list)  # Ensure a gene is selected
+        
+        gene_name <- input$gene_list
+        gene_cards_url <- paste0("https://www.genecards.org/cgi-bin/carddisp.pl?gene=", gene_name)
+        gtex_liver_url <- paste0(paste0("https://gtexportal.org/home/gene/", gene_name),"#geneExpression")
+        
+        # Create HTML for all three links
+        gene_cards_link <- tags$a(href = gene_cards_url, target = "_blank", 
+                                  paste("View", gene_name, "on GeneCards"))
+        gtex_liver_link <- tags$a(href = gtex_liver_url, target = "_blank", 
+                                  paste("View", gene_name, "expression on GTEx Portal"))
+        
+        # Combine all links into a single HTML output
+        tags$div(
+            tags$h3("Gene Information Links:"),
+            tags$p(gene_cards_link),
+            tags$p(gtex_liver_link)
+        )
+    })
     
 }
 
