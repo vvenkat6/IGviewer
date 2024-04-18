@@ -1,0 +1,12 @@
+name: rshinyapp
+title:
+username: vvenkat6
+account: vvenkat6
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 11802711
+bundleId: 8512234
+url: https://vvenkat6.shinyapps.io/rshinyapp/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

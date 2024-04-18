@@ -20,11 +20,11 @@ library(stringr)
 library(leaflet)
 
 # load data
-icr_data <- read.csv("/Users/vivek/Desktop/ICR_Final/RshinyApp/data/cICR1495_MatPatOg.csv", stringsAsFactors = FALSE,header=F,sep=",")
+icr_data <- read.csv("data/cICR1495_MatPatOg.csv", stringsAsFactors = FALSE,header=F,sep=",")
 colnames(icr_data) <- c("ICR_name","Chromosome:start_position-end_position","maternal/paternal")
-genes_data <- read.delim("/Users/vivek/Desktop/ICR_Final/RshinyApp/data/AllGenes.txt", stringsAsFactors = FALSE)
-xpr_data <- read.csv("/Users/vivek/Desktop/ICR_Final/RshinyApp/data/xpr_lcpm.tsv", sep = ",", header = TRUE, row.names = 1)
-exon_data <- read.delim("/Users/vivek/Desktop/ICR_Final/RshinyApp/data/AllGenesExons.tsv", header = FALSE, col.names = c("Region", "Exon_Start", "Exon_End"))
+genes_data <- read.delim("data/AllGenes.txt", stringsAsFactors = FALSE)
+xpr_data <- read.csv("data/xpr_lcpm.tsv", sep = ",", header = TRUE, row.names = 1)
+exon_data <- read.delim("data/AllGenesExons.tsv", header = FALSE, col.names = c("Region", "Exon_Start", "Exon_End"))
 
 # Pre-process data
 genes_data$hg38.knownGene.chrom <- sub("_.*", "", genes_data$hg38.knownGene.chrom)
