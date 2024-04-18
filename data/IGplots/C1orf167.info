@@ -1,0 +1,5 @@
+,CHROM,position,heterozygousRatio,sample,REF_r,ALT_r,GT_r,total_reads,REF_w,GT_w,ALT_w,Heterozygous_w,Homozygous_w,color
+/home3/vvenka23/ICR_Final/data/hg38GATK/21424B.vcfFULL.gz.1,chr1,11787715,1,21424B,G,T,1/1,97,G,0/1,T,TRUE,FALSE,green
+/home3/vvenka23/ICR_Final/data/hg38GATK/21424B.vcfFULL.gz.3,chr1,11788011,0.961538461538462,21424B,G,C,1/1,52,G,0/1,C,TRUE,FALSE,green
+/home3/vvenka23/ICR_Final/data/hg38GATK/22316B.vcfFULL.gz.1,chr1,11787702,0.54320987654321,22316B,C,T,0/1,162,NA,NA,NA,NA,NA,#3f007d
+/home3/vvenka23/ICR_Final/data/hg38GATK/22316B.vcfFULL.gz.2,chr1,11788212,0.5,22316B,C,T,0/1,100,NA,NA,NA,NA,NA,#3f007d
