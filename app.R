@@ -17,7 +17,8 @@ library(corrplot)
 library(reshape2)
 library(heatmaply)
 library(stringr)
-library(leaflet)
+library(gprofiler2)
+
 
 # load data
 icr_data <- read.csv("data/cICR1495_MatPatOg.csv", stringsAsFactors = FALSE,header=F,sep=",")
@@ -54,11 +55,14 @@ ui <- fluidPage(
         ),
         mainPanel(
             plotlyOutput("chromosome_plot",height = "800px", width = "100%"),
-            plotlyOutput("correlation_plot",height = "800px", width = "100%"),
-            dataTableOutput("gene_expression_table"),
+            tabsetPanel(
+                tabPanel("Correlation",plotlyOutput("correlation_plot",height = "800px", width = "100%")),
+                tabPanel("GO Analysis",plotlyOutput("goPlot")
+                )
+            ),
             h3(textOutput("image_title")), 
             tabsetPanel(
-                tabPanel("Het View",imageOutput("gene_image")),
+                tabPanel("Het View",imageOutput("gene_image",width="100%")),
                 tabPanel("External Links",uiOutput("gene_link"))
             )
         )
@@ -100,11 +104,20 @@ server <- function(input, output, session) {
     output$chromosome_plot <- renderPlotly({
         icr_data$selected <- icr_data$ICR_name == input$selected_icr
         icr_data$Chromosome <- factor(icr_data$Chromosome, levels = c(paste0("Chr", 1:22), "ChrX", "ChrY", "ChrMT"))
+        #icr_data$shape <- ifelse(icr_data$`maternal/paternal` == "Maternal", "Maternal", 
+         #                        ifelse(icr_data$`maternal/paternal` == "Paternal", "Paternal", "NA"))
+        #icr_data$shape <- as.factor(icr_data$shape)
+        print(head(icr_data))
+        
         p <- ggplot(icr_data, aes(x = Start, y = Chromosome, text = ICR_name, customData=ICR_name)) +
+            #geom_point(aes(color = selected,shape=shape), size = 2) +
             geom_point(aes(color = selected), size = 2) +
-            scale_color_manual(values = c("FALSE" = "black", "TRUE" = "red")) +
+            scale_color_manual(values = c("TRUE"="red","FALSE"="black")) +
+            #scale_shape_identity() +
+            #scale_shape_manual(values = c("Maternal" = 17, "Paternal" = 15, "NA" = 16), labels = c("Maternal", "Paternal", "Other")) +
             labs(title = "Chromosome Plot for ICR selection", x = "Position", y = "Chromosome") +
             theme_minimal()
+        
         ggplotly(p, tooltip = "text", source="chromosomePlot") %>% 
             layout(hovermode = "closest", hoverlabel = list(bgcolor = "white", font = list(size = 12), bordercolor = "black", align = "left"))
     })
@@ -124,7 +137,7 @@ server <- function(input, output, session) {
     output$image_title <- renderText({
         # Define the path to the image
         selected_gene <- input$gene_list
-        image_directory <- "/Users/vivek/Desktop/ICR_Final/RshinyApp/data/IGplots"
+        image_directory <- "data/IGplots"
         image_path <- file.path(image_directory, paste0(selected_gene, ".png"))
         
         if (!is.null(selected_gene) && file.exists(image_path)) {
@@ -138,7 +151,7 @@ server <- function(input, output, session) {
         selected_icr <- input$selected_icr
         
         # Path to the images folder
-        image_directory <- "/Users/vivek/Desktop/ICR_Final/RshinyApp/data/ICRplots/"
+        image_directory <- "data/ICRplots/"
         
         # Build the path to the specific gene image
         image_path <- file.path(image_directory, paste0(selected_icr, ".png"))
@@ -160,7 +173,7 @@ server <- function(input, output, session) {
         selected_gene <- input$gene_list
         
         # Path to the images folder
-        image_directory <- "/Users/vivek/Desktop/ICR_Final/RshinyApp/data/IGplots"
+        image_directory <- "data/IGplots"
         
         # Build the path to the specific gene image
         image_path <- file.path(image_directory, paste0(selected_gene, ".png"))
@@ -176,16 +189,11 @@ server <- function(input, output, session) {
         }
     }, deleteFile = FALSE)  # Keep deleteFile = FALSE to not delete the image after it's used
     
-    output$gene_table <- renderDataTable({
-        filtered_genes_data()
-    })
-    
     output$gene_count <- renderText({
         count <- nrow(filtered_genes_data())
         paste("Total number of genes within", input$range, "Kb upstream and downstream:", count)
     })
 
-   
     output$correlation_plot <- renderPlotly({
         filtered_genes <- filtered_genes_data()
         selected_genes <- filtered_genes$hg38.kgXref.geneSymbol
@@ -207,6 +215,20 @@ server <- function(input, output, session) {
             plot.new()
             text(0.5, 0.5, "Not enough genes for correlation plot", cex = 1.5)
         }
+    })
+    
+    output$goPlot <- renderPlotly({
+        filtered_genes <- filtered_genes_data()
+        selected_genes <- filtered_genes$hg38.kgXref.geneSymbol
+        #print(selected_genes)
+        gost_results <- gost(
+            query = selected_genes,
+            organism = "hsapiens",
+            correction_method = "fdr",
+            significant = TRUE
+        )
+        gp <- gostplot(gost_results, interactive = T, capped = T)
+        return(gp)
     })
     
     observe({
